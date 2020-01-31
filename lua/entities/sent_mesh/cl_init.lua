@@ -11,6 +11,7 @@ CreateClientConVar("MrMesh_paint_a", "255", true, false)
 CreateClientConVar("MrMesh_select_radius", "15", true, false)
 CreateClientConVar("MrMesh_select_snap", "0", true, false)
 
+MeshManager.Enabled = false
 MeshManager.OffsetX = 100
 MeshManager.OffsetY = 30
 MeshManager.Width = 300
@@ -23,6 +24,28 @@ local MESH_MANIPULATOR_CONTEXT = false
 local MESH_MANIPULATOR_MOUSE = false
 local MESH_MANIPULATOR_HOVERED = false
 local MESH_MANIPULATOR_FRAME = nil
+
+
+function MeshManager.TransformSelected( offset, smooth )
+  for _, mesh_ent in pairs( MESH_MANIPULATOR ) do
+    local selected = mesh_ent:GetSelectedIndices()
+
+    if ( #selected >= 1 ) then
+      mesh_ent:SendTransform( offset )
+    end
+  end
+end
+
+function MeshManager.PaintSelected( color )
+  for _, mesh_ent in pairs( MESH_MANIPULATOR ) do
+    local selected = mesh_ent:GetSelectedIndices()
+
+    if ( #selected >= 1 ) then
+      mesh_ent:SendPaint( color )
+    end
+  end
+end
+
 
 
 hook.Add( "Think", "MeshManip-ThinkAll", function()
@@ -64,141 +87,149 @@ end )
 
 --CONTEXT MENU
 
-list.Set( "DesktopWindows", "MeshManipulator", {
-    title = "Mesh Editor",
-    icon = "icon64/icon.png",
-    init = function( icon, window )
-      print("hi")
+function MeshManager.ToggleContext()
+  if not ( MeshManager.Enabled ) then
+    if ( IsValid( MESH_MANIPULATOR_FRAME ) ) then
+      MESH_MANIPULATOR_FRAME:Remove()
     end
-  }
-)
+  else
+    if not ( IsValid( MESH_MANIPULATOR_FRAME ) ) then
+      MESH_MANIPULATOR_FRAME = vgui.Create( "DFrame" )
+      MESH_MANIPULATOR_FRAME:SetTitle( "" )
+      MESH_MANIPULATOR_FRAME:SetSize( ScrW() - MeshManager.OffsetX, ScrH() - MeshManager.OffsetY )
+      MESH_MANIPULATOR_FRAME:SetPos( MeshManager.OffsetX, MeshManager.OffsetY )
+      MESH_MANIPULATOR_FRAME:MakePopup()
+      MESH_MANIPULATOR_FRAME:SetDeleteOnClose( false )
+      MESH_MANIPULATOR_FRAME.Paint = function( self )
+        local w, h = self:GetWide(), self:GetTall()
+
+        surface.SetDrawColor( 255, 255, 255, 0 )
+        surface.DrawRect( 0, 0, w, h)
+
+        surface.SetDrawColor( 0, 0, 0, 255 )
+        surface.DrawOutlinedRect( 0, 0, w, h)
+
+      end
+    else
+      MESH_MANIPULATOR_FRAME:MakePopup()
+    end
+
+    local color_mixer = vgui.Create( "DColorMixer", MESH_MANIPULATOR_FRAME )
+    color_mixer:SetPos( 10, 25)
+    color_mixer:SetSize( 190, 240 )
+    color_mixer:SetConVarR( "MrMesh_paint_r" )
+    color_mixer:SetConVarG( "MrMesh_paint_g" )
+    color_mixer:SetConVarB( "MrMesh_paint_b" )
+    color_mixer:SetConVarA( "MrMesh_paint_a" )
+
+    local slider_radius = vgui.Create( "DNumSlider", MESH_MANIPULATOR_FRAME )
+    slider_radius:SetPos( 10, 260)
+    slider_radius:SetSize( 190, 35 )
+    slider_radius:SetText( "Select Radius" )
+    slider_radius:SetMin( 5 )
+    slider_radius:SetMax( 5000 )
+    slider_radius:SetDecimals( 0 )
+    slider_radius:SetConVar( "MrMesh_select_radius" )
+
+    local slider_offset = vgui.Create( "DNumSlider", MESH_MANIPULATOR_FRAME )
+    slider_offset:SetPos( 10, 285)
+    slider_offset:SetSize( 190, 35 )
+    slider_offset:SetText( "Offset" )
+    slider_offset:SetMin( 0 )
+    slider_offset:SetMax( 500 )
+    slider_offset:SetDecimals( 0 )
+    slider_offset:SetConVar( "MrMesh_offset" )
+
+    local btn_transformup = vgui.Create( "DButton", MESH_MANIPULATOR_FRAME )
+    btn_transformup:SetFont( "DermaLarge" )
+    btn_transformup:SetSize( 190, 25 )
+    btn_transformup:SetPos( 10, 320 )
+    btn_transformup:SetText( "Transform Up" )
+    btn_transformup.DoClick = function( self )
+      --MeshSendTransform( Vector( 0, 0, slider_offset:GetValue() ) )
+      MeshManager.TransformSelected( Vector( 0, 0, slider_offset:GetValue() ) )
+    end
+
+    local btn_transformdown = vgui.Create( "DButton", MESH_MANIPULATOR_FRAME )
+    btn_transformdown:SetFont( "DermaLarge" )
+    btn_transformdown:SetSize( 190, 25 )
+    btn_transformdown:SetPos( 10, 350 )
+    btn_transformdown:SetText( "Transform Down" )
+    btn_transformdown.DoClick = function( self )
+      --MeshSendTransform( Vector( 0, 0, -slider_offset:GetValue() ) )
+      MeshManager.TransformSelected( Vector( 0, 0, -slider_offset:GetValue() ) )
+    end
+
+    local btn_clearselect = vgui.Create( "DButton", MESH_MANIPULATOR_FRAME )
+    btn_clearselect:SetFont( "DermaLarge" )
+    btn_clearselect:SetSize( 190, 25 )
+    btn_clearselect:SetPos( 10, 380 )
+    btn_clearselect:SetText( "Clear Selection" )
+    btn_clearselect.DoClick = function( self )
+      for _, v in pairs( MESH_MANIPULATOR ) do
+        v.Mesh.Primary = false
+        for _, v in pairs( v.Mesh.PAC ) do
+          v.sel = false
+        end
+      end
+    end
+
+    local btn_resetmesh = vgui.Create( "DButton", MESH_MANIPULATOR_FRAME )
+    btn_resetmesh:SetFont( "DermaLarge" )
+    btn_resetmesh:SetSize( 190, 25 )
+    btn_resetmesh:SetPos( 10, 410 )
+    btn_resetmesh:SetText( "Reset" )
+    btn_resetmesh.DoClick = function( self )
+      --http.Fetch( "https://www.dl.dropboxusercontent.com/s/umuhv8586ldzlb0/map.obj?dl=0", OnSuccess, OnFailure )
+
+      for _, mesh_ent in pairs( MESH_MANIPULATOR ) do
+        if ( mesh_ent:GetOwner() == LocalPlayer() ) then
+          MeshManipulatorURLCallback( mesh_ent, mesh_ent.Mesh.URL )
+        end
+      end
+    end
+
+    local btn_setcolor = vgui.Create( "DButton", MESH_MANIPULATOR_FRAME )
+    btn_setcolor:SetFont( "DermaLarge" )
+    btn_setcolor:SetSize( 190, 25 )
+    btn_setcolor:SetPos( 10, 440 )
+    btn_setcolor:SetText( "Apply Color" )
+    btn_setcolor.DoClick = function( self )
+      --MeshSendPaint( Color( GetConVar("MrMesh_paint_r"):GetInt(), GetConVar("MrMesh_paint_g"):GetInt(), GetConVar("MrMesh_paint_b"):GetInt(), GetConVar("MrMesh_paint_a"):GetInt() ) )
+      MeshManager.PaintSelected( Color( GetConVar("MrMesh_paint_r"):GetInt(), GetConVar("MrMesh_paint_g"):GetInt(), GetConVar("MrMesh_paint_b"):GetInt(), GetConVar("MrMesh_paint_a"):GetInt() ) )
+    end
+
+    local btn_sync = vgui.Create( "DButton", MESH_MANIPULATOR_FRAME )
+    btn_sync:SetFont( "DermaLarge" )
+    btn_sync:SetSize( 190, 25 )
+    btn_sync:SetPos( 10, 470 )
+    btn_sync:SetText( "Sync Collisions" )
+    btn_sync.DoClick = function( self )
+      for _, mesh_ent in pairs( MESH_MANIPULATOR ) do
+        print(mesh_ent:GetOwner())
+        if ( mesh_ent:GetOwner() == LocalPlayer() ) then
+          print(mesh_ent)
+          mesh_ent:Synchronize()
+        end
+      end
+    end
+
+      MeshManager.Panels = {}
+      table.insert(MeshManager.Panels, color_mixer)
+      table.insert(MeshManager.Panels, slider_radius)
+      table.insert(MeshManager.Panels, slider_offset)
+      table.insert(MeshManager.Panels, btn_transformup)
+      table.insert(MeshManager.Panels, btn_transformdown)
+      table.insert(MeshManager.Panels, btn_clearselect)
+      table.insert(MeshManager.Panels, btn_resetmesh)
+      table.insert(MeshManager.Panels, btn_setcolor)
+  end
+
+end
 
 hook.Add( "OnContextMenuOpen", "MeshManip-ContextOpen", function()
   MESH_MANIPULATOR_CONTEXT = true
-
-  if not ( IsValid( MESH_MANIPULATOR_FRAME ) ) then
-    MESH_MANIPULATOR_FRAME = vgui.Create( "DFrame" )
-    MESH_MANIPULATOR_FRAME:SetSize( ScrW() - MeshManager.OffsetX, ScrH() - MeshManager.OffsetY )
-    MESH_MANIPULATOR_FRAME:SetPos( MeshManager.OffsetX, MeshManager.OffsetY )
-    MESH_MANIPULATOR_FRAME:MakePopup()
-    MESH_MANIPULATOR_FRAME:SetDeleteOnClose( false )
-    MESH_MANIPULATOR_FRAME.Paint = function( self )
-      local w, h = self:GetWide(), self:GetTall()
-
-      surface.SetDrawColor( 255, 255, 255, 0 )
-      surface.DrawRect( 0, 0, w, h)
-
-      surface.SetDrawColor( 0, 0, 0, 255 )
-      surface.DrawOutlinedRect( 0, 0, w, h)
-
-    end
-  else
-    MESH_MANIPULATOR_FRAME:MakePopup()
-  end
-
-  local color_mixer = vgui.Create( "DColorMixer", MESH_MANIPULATOR_FRAME )
-  color_mixer:SetPos( 10, 25)
-  color_mixer:SetSize( 240, 240 )
-  color_mixer:SetConVarR( "MrMesh_paint_r" )
-  color_mixer:SetConVarG( "MrMesh_paint_g" )
-  color_mixer:SetConVarB( "MrMesh_paint_b" )
-  color_mixer:SetConVarA( "MrMesh_paint_a" )
-
-  local slider_radius = vgui.Create( "DNumSlider", MESH_MANIPULATOR_FRAME )
-  slider_radius:SetPos( 10, 260)
-  slider_radius:SetSize( 300, 35 )
-  slider_radius:SetText( "Select Radius" )
-  slider_radius:SetMin( 5 )
-  slider_radius:SetMax( 5000 )
-  slider_radius:SetDecimals( 0 )
-  slider_radius:SetConVar( "MrMesh_select_radius" )
-
-  local slider_offset = vgui.Create( "DNumSlider", MESH_MANIPULATOR_FRAME )
-  slider_offset:SetPos( 10, 285)
-  slider_offset:SetSize( 300, 35 )
-  slider_offset:SetText( "Offset" )
-  slider_offset:SetMin( 0 )
-  slider_offset:SetMax( 500 )
-  slider_offset:SetDecimals( 0 )
-  slider_offset:SetConVar( "MrMesh_offset" )
-
-  local btn_transformup = vgui.Create( "DButton", MESH_MANIPULATOR_FRAME )
-  btn_transformup:SetSize( 100, 25 )
-  btn_transformup:SetPos( 10, 320 )
-  btn_transformup:SetText( "Transform Up" )
-  btn_transformup.DoClick = function( self )
-    --MeshSendTransform( Vector( 0, 0, slider_offset:GetValue() ) )
-    MeshManager.TransformSelected( Vector( 0, 0, slider_offset:GetValue() ) )
-  end
-
-  local btn_transformdown = vgui.Create( "DButton", MESH_MANIPULATOR_FRAME )
-  btn_transformdown:SetSize( 100, 25 )
-  btn_transformdown:SetPos( 10, 350 )
-  btn_transformdown:SetText( "Transform Down" )
-  btn_transformdown.DoClick = function( self )
-    --MeshSendTransform( Vector( 0, 0, -slider_offset:GetValue() ) )
-    MeshManager.TransformSelected( Vector( 0, 0, -slider_offset:GetValue() ) )
-  end
-
-  local btn_clearselect = vgui.Create( "DButton", MESH_MANIPULATOR_FRAME )
-  btn_clearselect:SetSize( 100, 25 )
-  btn_clearselect:SetPos( 10, 380 )
-  btn_clearselect:SetText( "Clear Selection" )
-  btn_clearselect.DoClick = function( self )
-    for _, v in pairs( MESH_MANIPULATOR ) do
-      v.Mesh.Primary = false
-      for _, v in pairs( v.Mesh.PAC ) do
-        v.sel = false
-      end
-    end
-  end
-
-  local btn_resetmesh = vgui.Create( "DButton", MESH_MANIPULATOR_FRAME )
-  btn_resetmesh:SetSize( 100, 25 )
-  btn_resetmesh:SetPos( 10, 410 )
-  btn_resetmesh:SetText( "Reset" )
-  btn_resetmesh.DoClick = function( self )
-    --http.Fetch( "https://www.dl.dropboxusercontent.com/s/umuhv8586ldzlb0/map.obj?dl=0", OnSuccess, OnFailure )
-
-    for _, mesh_ent in pairs( MESH_MANIPULATOR ) do
-      if ( mesh_ent:GetOwner() == LocalPlayer() ) then
-        MeshManipulatorURLCallback( mesh_ent, mesh_ent.Mesh.URL )
-      end
-    end
-  end
-
-  local btn_setcolor = vgui.Create( "DButton", MESH_MANIPULATOR_FRAME )
-  btn_setcolor:SetSize( 100, 25 )
-  btn_setcolor:SetPos( 10, 440 )
-  btn_setcolor:SetText( "Apply Color" )
-  btn_setcolor.DoClick = function( self )
-    --MeshSendPaint( Color( GetConVar("MrMesh_paint_r"):GetInt(), GetConVar("MrMesh_paint_g"):GetInt(), GetConVar("MrMesh_paint_b"):GetInt(), GetConVar("MrMesh_paint_a"):GetInt() ) )
-    MeshManager.PaintSelected( Color( GetConVar("MrMesh_paint_r"):GetInt(), GetConVar("MrMesh_paint_g"):GetInt(), GetConVar("MrMesh_paint_b"):GetInt(), GetConVar("MrMesh_paint_a"):GetInt() ) )
-  end
-
-  local btn_sync = vgui.Create( "DButton", MESH_MANIPULATOR_FRAME )
-  btn_sync:SetSize( 100, 25 )
-  btn_sync:SetPos( 10, 470 )
-  btn_sync:SetText( "Sync Collisions" )
-  btn_sync.DoClick = function( self )
-    for _, mesh_ent in pairs( MESH_MANIPULATOR ) do
-      print(mesh_ent:GetOwner())
-      if ( mesh_ent:GetOwner() == LocalPlayer() ) then
-        print(mesh_ent)
-        mesh_ent:Synchronize()
-      end
-    end
-  end
-
-    MeshManager.Panels = {}
-    table.insert(MeshManager.Panels, color_mixer)
-    table.insert(MeshManager.Panels, slider_radius)
-    table.insert(MeshManager.Panels, slider_offset)
-    table.insert(MeshManager.Panels, btn_transformup)
-    table.insert(MeshManager.Panels, btn_transformdown)
-    table.insert(MeshManager.Panels, btn_clearselect)
-    table.insert(MeshManager.Panels, btn_resetmesh)
-    table.insert(MeshManager.Panels, btn_setcolor)
+  MeshManager.ToggleContext()
 end )
 
 hook.Add( "OnContextMenuClose", "MeshManip-ContextClose", function()
@@ -210,16 +241,17 @@ hook.Add( "OnContextMenuClose", "MeshManip-ContextClose", function()
 end )
 
 hook.Add( "HUDPaint", "MeshManip-DrawHUD", function()
+
   local num = 0
 
   for k, v in pairs( MESH_MANIPULATOR ) do
     num = num + 1
-    draw.DrawText( string.format( "Mesh-> %u: %s, %s", v:EntIndex(), v:GetOwner(), v.Mesh.URL ), "BudgetLabel", 10, 10*num, Color( 255, 0, 0 ) )
+    draw.DrawText( string.format( "Mesh-> %u: %s, %s", v:EntIndex(), v:GetOwner(), v.Mesh.URL ), "DermaLarge", 10, 10*num, Color( 255, 0, 0 ) )
     v:DrawHUD() --Maybe ill fix this
   end
 
   for _, v in pairs(ents.FindByClass("prop_physics")) do
-      local pos = v:LocalToWorld(v:OBBCenter()):ToScreen()
+      local pos = v:LocalToWorld( v:OBBCenter() ):ToScreen()
       --local pos = v:GetPos():ToScreen()
       local ang = v:GetAngles()
 
@@ -232,14 +264,19 @@ end )
 
 hook.Add( "PostDrawOpaqueRenderables", "MeshManip-Draw", function()
 
+
+
   for _, ent in pairs( MESH_MANIPULATOR ) do
+
+
 
     render.SetMaterial( MeshManager.Material )
 
     mesh.Begin( 2, #ent.Mesh.PAC / 3 )
       for i = 1, #ent.Mesh.PAC do
+
         mesh.Position( ent.Mesh.PAC[i].pos )
-        mesh.Normal( ent.Mesh.PAC[i].normal )
+        --mesh.Normal( ent.Mesh.PAC[i].normal )
         if ( ent.Mesh.PAC[i].color ) then
           mesh.Color( ent.Mesh.PAC[i].color.r, ent.Mesh.PAC[i].color.g, ent.Mesh.PAC[i].color.b, ent.Mesh.PAC[i].color.a )
         end
@@ -292,6 +329,8 @@ end
 
 
 function ENT:Think()
+  if not ( MeshManager.Enabled ) then return end
+
   if ( MESH_MANIPULATOR_CONTEXT and self.Mesh and self.Mesh.Nodes ) then
     for i = 1, #self.Mesh.Nodes do
       self.Mesh.Nodes[i].screenpos = self.Mesh.Nodes[i].pos:ToScreen()
@@ -301,6 +340,8 @@ end
 
 
 function ENT:DrawHUD()
+  if not ( MeshManager.Enabled ) then return end
+
   if ( MESH_MANIPULATOR_CONTEXT and self.Mesh ) then
     for i = 1, #self.Mesh.Nodes do
       if ( self.Mesh.Nodes[i].screenpos ) then
@@ -316,7 +357,9 @@ function ENT:DrawHUD()
 
           surface.DrawRect( self.Mesh.Nodes[i].screenpos.x-1, self.Mesh.Nodes[i].screenpos.y-1, 4, 4 )
 
-          --draw.DrawText( string.format( "Mesh: %i", self:EntIndex() ), "DermaDefault", self.Mesh.PAC[i].screenpos.x, self.Mesh.PAC[i].screenpos.y+6, Color( 0, 0, 0 ) )
+          draw.DrawText( string.format( "Mesh: %i", self:EntIndex() ), "DermaDefault", self.Mesh.PAC[i].screenpos.x, self.Mesh.PAC[i].screenpos.y+6, Color( 0, 0, 0 ) )
+
+
           --draw.DrawText( string.format( "%u", self.Mesh.Nodes[i].pos_index ), "BudgetLabel", self.Mesh.Nodes[i].screenpos.x, self.Mesh.Nodes[i].screenpos.y, Color( 255, 255, 255 ) )
           --draw.DrawText( string.format( "(%i, %i, %i)", self.Mesh.Nodes[i].pos.x, self.Mesh.Nodes[i].pos.y, self.Mesh.Nodes[i].pos.z ), "BudgetLabel", self.Mesh.Nodes[i].screenpos.x, self.Mesh.Nodes[i].screenpos.y+16, Color( 255, 255, 255 ) )
 

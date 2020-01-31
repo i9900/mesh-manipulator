@@ -14,10 +14,12 @@ ENT.Editable = true
 ENT.Spawnable = true
 ENT.AdminOnly = false
 
+ENT.RenderGroup = RENDERGROUP_OPAQUE
+
 
 function MeshManipulatorSuccessCallback( ent, body )
   ent.Mesh = {} --Is now created before success
-  ent.Mesh.Material = Material( "editor/wireframe" )
+  ent.Mesh.Material = Material( "hunter/myplastic" )
   ent.Mesh.Position = ent:GetPos()
   ent.Mesh.PAC = false
 
@@ -73,55 +75,7 @@ function MeshManipulatorSuccessCallback( ent, body )
 end
 
 
-function ENT:OnRemove()
-  MESH_MANIPULATOR[ self:EntIndex() ] = nil
-end
-
-if ( SERVER ) then --Move to sent_mesh_sv.lua
-
-  function ENT:SpawnFunction( pl, tr, ClassName )
-    if ( !tr.Hit ) then return end
-
-  	local SpawnPos = tr.HitPos + tr.HitNormal * 1
-
-  	local ent = ents.Create( ClassName )
-  	ent:SetPos( SpawnPos )
-    ent:SetOwner( pl )
-  	ent:Spawn()
-  	ent:Activate()
-
-  	return ent
-  end
-
-
-  return
-end
-
-
-
 --################################### MESHMAN
-
-
-
-function MeshManager.TransformSelected( offset, smooth )
-  for _, mesh_ent in pairs( MESH_MANIPULATOR ) do
-    local selected = mesh_ent:GetSelectedIndices()
-
-    if ( #selected >= 1 ) then
-      mesh_ent:SendTransform( offset )
-    end
-  end
-end
-
-function MeshManager.PaintSelected( color )
-  for _, mesh_ent in pairs( MESH_MANIPULATOR ) do
-    local selected = mesh_ent:GetSelectedIndices()
-
-    if ( #selected >= 1 ) then
-      mesh_ent:SendPaint( color )
-    end
-  end
-end
 
 net.Receive( "mesh_sync_update", function( len )
   local mesh_ent = net.ReadEntity()

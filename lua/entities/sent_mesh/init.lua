@@ -26,14 +26,28 @@ function ENT:OnRemove()
   end
 end
 
+function ENT:SpawnFunction( pl, tr, ClassName )
+  if not ( tr.Hit ) then return end
+
+  local SpawnPos = tr.HitPos + tr.HitNormal * 1
+
+  local ent = ents.Create( ClassName )
+  ent:SetPos( SpawnPos )
+  ent:SetOwner( pl )
+  ent:Spawn()
+  ent:Activate()
+
+  return ent
+end
+
 local function GetMeanPosition( vec_tbl )
   local tbl_pos = {}
-  for k, v in pairs(vec_tbl) do
-    if type(v) == "Vector" then
+  for _, vec in pairs( vec_tbl ) do
+    if type( vec ) == "Vector" then
 --      v.x = math.floor(v.x)
 --      v.y = math.floor(v.y)
 --      v.z = math.floor(v.z)
-      table.insert(tbl_pos, v)
+      table.insert( tbl_pos, vec )
     end
   end
 
@@ -43,18 +57,20 @@ end
 local function GetMeanAngle( vec_tbl )
   local tbl_pos = {}
 
-  for k, v in pairs(vec_tbl) do
-    if type(v) == "Vector" then
-      table.insert(tbl_pos, v)
+  for _, vec in pairs(vec_tbl) do
+    if ( type( vec ) == "Vector" ) then
+      table.insert( tbl_pos, vec )
     end
   end
 
 
-  table.sort( tbl_pos, function(a, b) return a.z > b.z end )
+  table.sort( tbl_pos, function(a, b)
+    return a.z > b.z
+  end )
 
 
-  local ang_a = (tbl_pos[1]-tbl_pos[2]):Angle()
-  local ang_b = (tbl_pos[3]-tbl_pos[4]):Angle()
+  local ang_a = ( tbl_pos[1]-tbl_pos[2] ):Angle()
+  local ang_b = ( tbl_pos[3]-tbl_pos[4] ):Angle()
 
   local ang_e = Angle(0,0,0) --dang
 
@@ -71,7 +87,7 @@ net.Receive( "mesh_collisions_recv", function( len, ply)
 
   if ( IsValid(mesh_ent) and mesh_ent:GetClass() == "sent_mesh" ) then
 
-    if not (mesh_ent.Convex) then
+    if not ( mesh_ent.Convex ) then
 
       mesh_ent.Convex = convex
 
@@ -80,14 +96,14 @@ net.Receive( "mesh_collisions_recv", function( len, ply)
 
         local prop = ents.Create( "prop_physics" )
         prop:SetModel( "models/hunter/plates/plate1x1.mdl" )
-        --prop:SetParent( mesh_ent )
         prop:SetPos( mean_pos )
         prop:Spawn()
         local phys = prop:GetPhysicsObject()
         phys:EnableMotion( false )
-        prop:SetMaterial( "gm_construct/grass1" )
-        prop:SetColor( Color( 145, 255, 145, 0 ) )
-        prop:SetRenderMode( RENDERMODE_TRANSALPHA )
+        prop:SetMaterial( "editor/wireframe" )
+        prop:SetColor( Color( 255, 255, 255, 0 ) )
+        prop:SetRenderMode( RENDERMODE_NONE )
+        prop:DrawShadow( false )
         prop:SetMoveType( MOVETYPE_VPHYSICS )
         prop:SetSolid( SOLID_VPHYSICS )
         prop:EnableCustomCollisions(true)
@@ -97,8 +113,6 @@ net.Receive( "mesh_collisions_recv", function( len, ply)
           ent = prop,
         }
       end
-
-
     else
 
   --[[      for node_ind, node_tbl in pairs( mesh_ent.Convex ) do
