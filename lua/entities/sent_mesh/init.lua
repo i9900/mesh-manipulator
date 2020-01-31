@@ -1,11 +1,7 @@
 include("shared.lua")
-
-for _, v in pairs( player.GetAll() ) do
-  v:SendLua( [[RunConsoleCommand("say", 1/FrameTime()) ]] )
-end
+AddCSLuaFile("cl_init.lua")
 
 print("SV: MESH")
-
 
 include("pac3/libraries/caching/cache.lua")
 include("pac3/libraries/urlobj/urlobj.lua")
@@ -21,6 +17,14 @@ util.AddNetworkString("mesh_sync_recv")   --Sync mesh verts
 util.AddNetworkString("mesh_sync_update")
 
 util.AddNetworkString("mesh_collisions_recv")
+
+function ENT:OnRemove()
+  if ( self.Convex ) then --Remove collision props
+    for _, node_tbl in pairs( self.Convex ) do
+      SafeRemoveEntity( node_tbl.prop.ent )
+    end
+  end
+end
 
 local function GetMeanPosition( vec_tbl )
   local tbl_pos = {}
