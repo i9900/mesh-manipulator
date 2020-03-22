@@ -10,6 +10,7 @@ CreateClientConVar("MrMesh_paint_b", "0", true, false)
 CreateClientConVar("MrMesh_paint_a", "255", true, false)
 CreateClientConVar("MrMesh_select_radius", "15", true, false)
 CreateClientConVar("MrMesh_select_snap", "0", true, false)
+CreateClientConVar("MrMesh_drawhud", "0", true, false, "Should we draw the editor buttons on screen?", 0, 1)
 
 MeshManager.Enabled = false
 MeshManager.OffsetX = 100
@@ -18,9 +19,9 @@ MeshManager.Width = 300
 MeshManager.Height = 600
 MeshManager.Panels = {}
 MeshManager.SelectRadius = GetConVar("MrMesh_select_radius"):GetInt()
-MeshManager.Material = Material( "editor/wireframe" )
+MeshManager.Material = Material("editor/wireframe")
 
-local MESH_MANIPULATOR_CONTEXT = false
+MESH_MANIPULATOR_CONTEXT = false
 local MESH_MANIPULATOR_MOUSE = false
 local MESH_MANIPULATOR_HOVERED = false
 local MESH_MANIPULATOR_FRAME = nil
@@ -229,7 +230,7 @@ end
 
 hook.Add( "OnContextMenuOpen", "MeshManip-ContextOpen", function()
   MESH_MANIPULATOR_CONTEXT = true
-  MeshManager.ToggleContext()
+  --MeshManager.ToggleContext()
 end )
 
 hook.Add( "OnContextMenuClose", "MeshManip-ContextClose", function()
@@ -329,6 +330,13 @@ end
 
 
 function ENT:Think()
+
+  if GetConVar("MrMesh_select_radius"):GetBool() then
+    MeshManager.Enabled = true
+  else
+    MeshManager.Enabled = false
+  end
+
   if not ( MeshManager.Enabled ) then return end
 
   if ( MESH_MANIPULATOR_CONTEXT and self.Mesh and self.Mesh.Nodes ) then
@@ -357,7 +365,7 @@ function ENT:DrawHUD()
 
           surface.DrawRect( self.Mesh.Nodes[i].screenpos.x-1, self.Mesh.Nodes[i].screenpos.y-1, 4, 4 )
 
-          draw.DrawText( string.format( "Mesh: %i", self:EntIndex() ), "DermaDefault", self.Mesh.PAC[i].screenpos.x, self.Mesh.PAC[i].screenpos.y+6, Color( 0, 0, 0 ) )
+          --draw.DrawText( string.format( "Mesh: %i", self:EntIndex() ), "DermaDefault", self.Mesh.PAC[i].screenpos.x, self.Mesh.PAC[i].screenpos.y+6, Color( 0, 0, 0 ) )
 
 
           --draw.DrawText( string.format( "%u", self.Mesh.Nodes[i].pos_index ), "BudgetLabel", self.Mesh.Nodes[i].screenpos.x, self.Mesh.Nodes[i].screenpos.y, Color( 255, 255, 255 ) )
