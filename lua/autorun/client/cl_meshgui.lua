@@ -9,11 +9,10 @@ list.Set(
 		onewindow = true,
 		init = function(icn, pnl)
 			pnl:Remove()
-
-      if (MeshManager) then
-        MeshManager.Enabled = not MeshManager.Enabled
-        MeshManager.ToggleContext()
-      end
+			if (MeshManager) then
+				MeshManager.Enabled = not MeshManager.Enabled
+				MeshManager.ToggleContext()
+		      	end
 		end
 	}
 )
